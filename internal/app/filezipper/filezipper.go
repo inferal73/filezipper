@@ -3,42 +3,23 @@ package filezipper
 import (
 	"archive/zip"
 	"fmt"
+	"github.com/inferal73/filezipper/internal/app/logger"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-func changeFileExt(fileName string, ext string) string {
-	fileExt := filepath.Ext(fileName)
-	withOutExt := strings.TrimSuffix(fileName, fileExt)
-	return fmt.Sprintf("%s.%s", withOutExt, ext)
-}
+var l = logger.GetLogger()
 
-func createZipFile(path string, fileName string) (*os.File, string, error) {
-	if _, err := os.Stat(path);
-		os.IsNotExist(err) {
-		err = os.MkdirAll(path, 0750)
-		if err != nil {
-			return nil, "", err
-		}
-	}
-	pathWithFile := filepath.Join(path, fileName)
-	file, err := os.Create(pathWithFile)
-	if err != nil {
-		return nil, "", err
-	}
-	return file, pathWithFile, nil
-}
-
-func ZipFiles(config *Config, w io.Writer) error {
-	_, err := fmt.Fprintf(w, "Start processing\n")
+func Zip(config *Config) error {
+	err := l.Log("Start processing\n")
 	if err != nil {
 		return err
 	}
 
 	defer func() {
-		_, err = fmt.Fprintf(w,"Finished")
+		err = l.Log("Finished")
 	}()
 
 	info, err := os.Stat(config.Entry)
@@ -46,19 +27,26 @@ func ZipFiles(config *Config, w io.Writer) error {
 		return err
 	}
 
-	if !info.IsDir() {
-		_, err = ZipFile(config.Entry, config.Out, w)
+	if info.IsDir() {
+		err = zipDir(config.Entry, config.Out)
 		if err != nil {
 			return err
 		}
 		return nil
 	}
+	err = zipFile(config.Entry, config.Out)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-	err = filepath.Walk(config.Entry, func(path string, info os.FileInfo, err error) error {
+func zipDir(entry, out string) error {
+	err := filepath.Walk(entry, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
 		}
-		_, err = ZipFile(path, config.Out, w)
+		err = zipFile(path, out)
 		if err != nil {
 			return err
 		}
@@ -70,24 +58,24 @@ func ZipFiles(config *Config, w io.Writer) error {
 	return nil
 }
 
-func ZipFile(entry, out string, w io.Writer) (path string, err error) {
+func zipFile(entry, out string) error {
 	// get entry file info
 	entryFile, err := os.Stat(entry)
 	if err != nil {
-		return
+		return err
 	}
 
 	// generate zip file name
 	zipFileName := changeFileExt(entryFile.Name(), "zip")
-	_, err = fmt.Fprintf(w, "Archiving %s ...\n", zipFileName)
+	err = l.Log("Archiving %s ...\n", zipFileName)
 	if err != nil {
-		return
+		return err
 	}
 
 	// create zip file
-	zipFile, path, err := createZipFile(out, zipFileName)
+	zipFile, _, err := createZipFile(out, zipFileName)
 	if err != nil {
-		return
+		return err
 	}
 	defer func() {
 		err = zipFile.Close()
@@ -95,12 +83,17 @@ func ZipFile(entry, out string, w io.Writer) (path string, err error) {
 
 	// init zip file writer
 	archive := zip.NewWriter(zipFile)
-	defer archive.Close()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = archive.Close()
+	}()
 
 	// create zip file headers
 	header, err := zip.FileInfoHeader(entryFile)
 	if err != nil {
-		return
+		return err
 	}
 	header.Method = zip.Deflate
 
@@ -110,17 +103,42 @@ func ZipFile(entry, out string, w io.Writer) (path string, err error) {
 		err = zFile.Close()
 	}()
 	if err != nil {
-		return
+		return err
 	}
 	writer, err := archive.CreateHeader(header)
 	if err != nil {
-		return
+		return err
 	}
 
 	// compress file
 	_, err = io.Copy(writer, zFile)
 	if err != nil {
-		return
+		return err
 	}
-	return
+	return err
+}
+
+func changeFileExt(fileName string, ext string) string {
+	fileExt := filepath.Ext(fileName)
+	withOutExt := strings.TrimSuffix(fileName, fileExt)
+	return fmt.Sprintf("%s.%s", withOutExt, ext)
+}
+
+func createZipFile(path string, fileName string) (*os.File, string, error) {
+	_, err := os.Stat(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil, "", err
+		}
+		err = os.MkdirAll(path, 0750)
+		if err != nil {
+			return nil, "", err
+		}
+	}
+	pathWithFile := filepath.Join(path, fileName)
+	file, err := os.Create(pathWithFile)
+	if err != nil {
+		return nil, "", err
+	}
+	return file, pathWithFile, nil
 }

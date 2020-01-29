@@ -1,6 +1,7 @@
 package filezipper
 
 var Version string
+
 // Config ...
 type Config struct {
 	Entry string
