@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 )
 
 type Logger interface {
@@ -13,15 +14,17 @@ type Logger interface {
 
 type logger struct {
 	w io.Writer
+	sync.RWMutex
 }
 
 var instance *logger
+var once sync.Once
 
 func GetLogger() Logger {
-	if instance == nil {
+	once.Do(func() {
 		instance = new(logger)
 		instance.SetWriter(os.Stdout)
-	}
+	})
 	return instance
 }
 
@@ -31,5 +34,7 @@ func (l *logger) Log(format string, a ...interface{}) error {
 }
 
 func (l *logger) SetWriter(writer io.Writer) {
+	l.Lock()
+	defer l.Unlock()
 	l.w = writer
 }

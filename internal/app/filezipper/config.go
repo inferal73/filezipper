@@ -12,6 +12,5 @@ type Config struct {
 func NewConfig(entry, out string) *Config {
 	return &Config{
 		Entry: entry,
-		Out:   out,
-	}
+		Out:   out,}
 }

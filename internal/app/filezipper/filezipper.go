@@ -65,15 +65,7 @@ func zipFile(entry, out string) error {
 		return err
 	}
 
-	// generate zip file name
-	zipFileName := changeFileExt(entryFile.Name(), "zip")
-	err = l.Log("Archiving %s ...\n", zipFileName)
-	if err != nil {
-		return err
-	}
-
-	// create zip file
-	zipFile, _, err := createZipFile(out, zipFileName)
+	zipFile, err := generateFile(out, entryFile.Name())
 	if err != nil {
 		return err
 	}
@@ -118,13 +110,26 @@ func zipFile(entry, out string) error {
 	return err
 }
 
+func generateFile(out, fileName string) (*os.File, error) {
+	zipFileName := changeFileExt(fileName, "zip")
+	err := l.Log("Archiving %s ...\n", zipFileName)
+	if err != nil {
+		return nil, err
+	}
+	zipFile, _, err := createFile(out, zipFileName)
+	if err != nil {
+		return nil, err
+	}
+	return zipFile, nil
+}
+
 func changeFileExt(fileName string, ext string) string {
 	fileExt := filepath.Ext(fileName)
 	withOutExt := strings.TrimSuffix(fileName, fileExt)
 	return fmt.Sprintf("%s.%s", withOutExt, ext)
 }
 
-func createZipFile(path string, fileName string) (*os.File, string, error) {
+func createFile(path string, fileName string) (*os.File, string, error) {
 	_, err := os.Stat(path)
 	if err != nil {
 		if !os.IsNotExist(err) {
