@@ -4,37 +4,28 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sync"
 )
 
-type Logger interface {
-	Log(format string, a ...interface{}) error
-	SetWriter(writer io.Writer)
+func init()  {
+	instance = &logger{
+		w: os.Stdout,
+	}
 }
 
 type logger struct {
 	w io.Writer
-	sync.RWMutex
 }
 
 var instance *logger
-var once sync.Once
 
-func GetLogger() Logger {
-	once.Do(func() {
-		instance = new(logger)
-		instance.SetWriter(os.Stdout)
-	})
+func GetLogger() *logger {
 	return instance
 }
 
-func (l *logger) Log(format string, a ...interface{}) error {
-	_, err := fmt.Fprintf(l.w, format, a...)
-	return err
+func SetWriter(writer io.Writer) {
+	instance.w = writer
 }
 
-func (l *logger) SetWriter(writer io.Writer) {
-	l.Lock()
-	defer l.Unlock()
-	l.w = writer
+func Log(format string, a ...interface{}) {
+	_, _ = fmt.Fprintf(instance.w, format, a...)
 }

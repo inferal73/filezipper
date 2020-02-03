@@ -21,10 +21,9 @@ func init()  {
 }
 
 func main()  {
-	fmt.Println("filezipper", Version)
+	logger.Log("filezipper %s", Version)
 	flag.Parse()
 	validateFlags([]string{"entry", "out"})
-	logger.GetLogger()
 	config := filezipper.NewConfig(entry, out)
 	if err := filezipper.Zip(config); err != nil {
 		log.Fatal(err)
